@@ -1,0 +1,47 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compile with PS2dev
+        run: |
+          # Sprawdzamy czy kompilator jest w PATH
+          if command -v ee-gcc &> /dev/null; then
+              EE_GCC="ee-gcc"
+          else
+              # Szukamy binariów omijając katalogi tymczasowe GitHub Actions
+              EE_GCC=$(find /usr /opt /lib /bin /usr/local -name "ee-gcc" -type f 2>/dev/null | head -n 1)
+          fi
+          
+          echo "Używam kompilatora: $EE_GCC"
+          $EE_GCC --version
+          
+          # Wyciągamy folder nadrzędny, aby ustawić ścieżki SDK
+          BIN_DIR=$(dirname "$EE_GCC")
+          EE_DIR=$(dirname "$BIN_DIR")
+          PS2DEV_ROOT=$(dirname "$EE_DIR")
+          
+          export PS2DEV=$PS2DEV_ROOT
+          export PS2SDK=$PS2DEV/ps2sdk
+          
+          # Kompilacja projektu
+          if [ -d "src" ]; then
+              $EE_GCC -O2 src/*.c -o SNAKE.ELF -L$PS2SDK/ee/lib -I$PS2SDK/ee/include -lgraph -lkernel
+          else
+              $EE_GCC -O2 *.c -o SNAKE.ELF -L$PS2SDK/ee/lib -I$PS2SDK/ee/include -lgraph -lkernel
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
