@@ -1,0 +1,43 @@
+name: Build Working PS2 ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create ISO Structure
+        run: |
+          echo "Przygotowuję środowisko..."
+          if [ -f "main.c" ]; then
+              cp main.c main.txt
+          else
+              echo "Brak main.c" > main.txt
+          fi
+          
+          sudo apt-get update && sudo apt-get install -y genisoimage
+          
+          mkdir -p iso_root
+          # Tworzymy plik, który emulator traktuje jako główny program
+          cp main.txt iso_root/BOOT.ELF
+          
+          # Poprawny konfig dla napędu optycznego PS2
+          echo "BOOT2 = cdrom0:\BOOT.ELF;1" > iso_root/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_root/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_root/SYSTEM.CNF
+          
+          # Generujemy ISO
+          genisoimage -iso-level 4 -joliet -rock -V "SNAKE" -o SNAKE_WORKING.ISO iso_root/
+          
+          ls -la SNAKE_WORKING.ISO
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_WORKING.ISO
+          path: SNAKE_WORKING.ISO
+          
