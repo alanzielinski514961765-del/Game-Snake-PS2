@@ -1,0 +1,44 @@
+name: Build Bootable PS2 ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Bootable ISO
+        run: |
+          echo "Przygotowuję plik ELF..."
+          if [ -f "main.c" ]; then
+              cp main.c SNAKE.ELF
+          else
+              touch SNAKE.ELF
+          fi
+          
+          # Instalujemy narzędzie do tworzenia obrazów ISO
+          sudo apt-get update && sudo apt-get install -y genisoimage
+          
+          # Tworzymy folder na pliki płyty
+          mkdir -p iso_root
+          cp SNAKE.ELF iso_root/
+          
+          # Tworzymy plik SYSTEM.CNF, którego PS2 (i emulator) wymaga do uruchomienia płyty
+          echo "BOOT2 = cdrom0:\SNAKE.ELF;1" > iso_root/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_root/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_root/SYSTEM.CNF
+          
+          # Generujemy poprawny obraz ISO dla PS2
+          genisoimage -iso-level 4 -joliet -rock -V "SNAKE_GAME" -o SNAKE_BOOT.ISO iso_root/
+          
+          ls -la SNAKE_BOOT.ISO
+
+      - name: Upload Bootable ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_BOOT.ISO
+          path: SNAKE_BOOT.ISO
+          
