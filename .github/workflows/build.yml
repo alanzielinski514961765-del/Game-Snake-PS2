@@ -1,0 +1,27 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install MIPS GCC & Build
+        run: |
+          # Instalujemy gotowy kompilator MIPS z repozytorium Ubuntu (szybko i bez zdychania Dockera)
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-mips-linux-gnu binutils-mips-linux-gnu make
+          
+          # Kompilujemy projekt
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
