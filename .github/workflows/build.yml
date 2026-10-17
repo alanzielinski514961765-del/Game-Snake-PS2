@@ -1,0 +1,28 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download prebuilt MIPS toolchain & Build
+        run: |
+          # Pobieramy gotowy, lekki toolchain bezpośrednio jako archiwum (bez apt-get!)
+          # Używamy np. gotowych binariów ps2dev z oficjalnych wydań GitHub
+          wget -q https://github.com/ps2dev/ps2toolchain/releases/download/v1.0/ps2toolchain-ubuntu-latest.tar.gz || true
+          
+          # Jeśli masz własny Makefile pod ps2sdk, po prostu spróbujemy odpalić make 
+          # z uwzględnieniem standardowych ścieżek lub sprawdzimy strukturę
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
