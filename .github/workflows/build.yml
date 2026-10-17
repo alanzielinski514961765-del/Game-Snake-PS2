@@ -13,24 +13,18 @@ jobs:
 
       - name: Create source file
         run: |
-          echo "Tworzę stabilny kod main.c..."
+          echo "Tworzę czysty plik main.c..."
           cat << 'EOF' > main.c
-          #include <tamtypes.h>
-          #include <kernel.h>
-          #include <sifrpc.h>
-
+          // Czysty plik bez felernych nagłówków SIF – tylko podstawowy kernel
           int main() {
-              // Podstawowa inicjalizacja systemu
-              SifInitRpc(0);
-
-              // Bezpieczna pętla główna gry
               int snake_x = 10;
               int snake_y = 10;
 
               while(1) {
-                  // Tutaj w następnym kroku zaimplementujemy stan węża
                   snake_x++;
-                  if (snake_x > 100) snake_x = 10;
+                  if (snake_x > 100) {
+                      snake_x = 10;
+                  }
               }
 
               return 0;
@@ -47,12 +41,8 @@ jobs:
           echo "Instaluję xorriso..."
           apk update && apk add xorriso
           
-          echo "Kompiluję kod C..."
-          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF \
-              -I$PS2SDK/common/include \
-              -I$PS2SDK/ee/include \
-              -L$PS2SDK/ee/lib \
-              -lkernel -lsifrpc
+          echo "Kompiluję kod C bez zewnętrznych bibliotek I Wsadzam Penisa W Plastikową Cipę..."
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib
           
           mkdir -p iso_root
           cp BOOT.ELF iso_root/BOOT.ELF
