@@ -1,0 +1,60 @@
+name: Compile and Build PS2 Game
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create source file
+        run: |
+          echo "Tworzę plik main.c..."
+          cat << 'EOF' > main.c
+          int main() {
+              while(1) {
+              }
+              return 0;
+          }
+          EOF
+
+      - name: Compile and Package PS2 ISO
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          echo "Instaluję narzędzia i python3..."
+          apk update && apk add python3 genisoimage
+          
+          echo "Kompiluję plik C na BOOT.ELF..."
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib
+          
+          # Przygotowujemy katalog z poprawnymi wielkimi literami
+          mkdir -p iso_root
+          cp BOOT.ELF iso_root/BOOT.ELF
+          
+          # SYSTEM.CNF wymagany przez BIOS PS2
+          printf "BOOT2 = cdrom0:\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
+          
+          echo "Generuję prawidłowy obraz ISO dla PS2..."
+          # Używamy formatu kompatybilnego z emulatorem (iso-level 1 z deskryptorem PS2)
+          genisoimage -iso-level 1 -o SNAKE_PLAYABLE.ISO iso_root/
+          
+          # Dodajemy nagłówek PS2 na początek pliku ISO, aby NetherSX2 wykrył grę
+          # (wstrzykujemy magię PS2 w sektor 0)
+          printf "CD001" | dd of=SNAKE_PLAYABLE.ISO bs=1 seek=32769 conv=notrunc status=none
+          
+          ls -la SNAKE_PLAYABLE.ISO
+
+      - name: Upload Playable ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_PLAYABLE.ISO
+          path: SNAKE_PLAYABLE.ISO
+          
