@@ -1,4 +1,4 @@
-name: Build PS2 ISO Final Fix
+name: Build PS2 ISO Direct
 
 on: [push]
 
@@ -9,51 +9,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Package ISO without conflicts
+      - name: Build and Package Direct
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
           export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
           
-          # Instalujemy wyłącznie xorriso i make (bez konfliktujących pakietów)
-          apk update && apk add xorriso make
+          apk update && apk add xorriso
           
-          # Tworzymy main.c jeśli go nie ma
-          if [ ! -f main.c ]; then
-            echo '#include <tamtypes.h>' > main.c
-            echo '#include <kernel.h>' >> main.c
-            echo 'int main(int argc, char *argv[]) { while(1) {} return 0; }' >> main.c
-          fi
-
-          # Tworzymy Makefile jeśli go nie ma
-          if [ ! -f Makefile ]; then
-            echo "EE_BIN = BOOT.ELF" > Makefile
-            echo "EE_OBJS = main.o" >> Makefile
-            echo "EE_LIBS = -lc" >> Makefile
-            echo "all: \$(EE_BIN)" >> Makefile
-            echo "clean:" >> Makefile
-            echo -e "\trm -f \$(EE_BIN) \$(EE_OBJS)" >> Makefile
-            echo "include \$(PS2SDK)/samples/Makefile.pref" >> Makefile
-            echo "include \$(PS2SDK)/samples/Makefile.eeglobal" >> Makefile
-          fi
-
-          # Kompilacja
-          make clean || true
-          make
-
-          # Przygotowanie struktury ISO
+          # Tworzymy bezpośredni kod testowy w C dla PS2
+          echo '#include <tamtypes.h>' > main.c
+          echo '#include <kernel.h>' >> main.c
+          echo 'int main() { while(1) {} return 0; }' >> main.c
+          
+          # Bezpośrednia kompilacja kompilatorem MIPS bez zewnętrznych reguł make
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
+          
           mkdir -p iso_root
           cp BOOT.ELF iso_root/BOOT.ELF
           
-          # SYSTEM.CNF z poprawnym kodowaniem i ścieżką
+          # Krytyczny SYSTEM.CNF z wielkimi literami
           printf "BOOT2 = cdrom0:\\\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
           
-          # Generowanie idealnego obrazu ISO dla PS2 przez xorriso
+          # Generowanie ISO przez xorriso
           xorriso -as mkisofs \
             -iso-level 1 \
             -full-iso9660-filenames \
-            -joliet \
-            -rock \
             -o SNAKE_GAME.ISO \
             iso_root/
           
