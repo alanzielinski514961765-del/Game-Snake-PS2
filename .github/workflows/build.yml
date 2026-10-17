@@ -1,4 +1,4 @@
-name: Build PS2 ISO Pro
+name: Build PS2 ISO Triple Threat
 
 on: [push]
 
@@ -9,37 +9,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Package
+      - name: Build Code with PS2SDK and Generate 3 ISO Variants
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
           export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
           
-          # Instalacja xorriso i pythona w Alpine
-          apk update && apk add xorriso python3
+          # Instalujemy wszystkie możliwe pakiety generujące obrazy ISO, żeby mieć 100% pewności
+          apk update && apk add xorriso genisoimage cdrkit make
           
-          # Tworzymy prosty kod główny gry
-          echo 'int main() { while(1); return 0; }' > main.c
-          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
+          # Kompilacja kodu za pomocą pełnego PS2SDK
+          make
           
-          # Tworzenie katalogu głównego płyty
+          # Tworzenie czystego katalogu roboczego
           mkdir -p iso_root
           cp BOOT.ELF iso_root/BOOT.ELF
           
-          # Bezpośredni i czysty zapis SYSTEM.CNF (bez dziwnych znaków ucieczki, które mogłyby zmylić system)
+          # Krytyczny plik konfiguracyjny SYSTEM.CNF z wielkimi literami i poprawną ścieżką
           printf "BOOT2 = cdrom0:\\\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
           
-          # Generowanie czystego ISO za pomocą xorriso w trybie zgodnym z ISO9660
-          xorriso -as mkisofs \
-            -iso-level 1 \
-            -full-iso9660-filenames \
-            -o SNAKE_GAME.ISO \
-            iso_root/
+          echo "=== WARIANT 1: Generowanie przez xorriso (tryb kompatybilny) ==="
+          xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_XORRISO.ISO iso_root/
           
-          ls -la SNAKE_GAME.ISO
+          echo "=== WARIANT 2: Generowanie przez genisoimage (klasyczny tryb PS2) ==="
+          genisoimage -iso-level 1 -o SNAKE_GENISO.ISO iso_root/
+          
+          echo "=== WARIANT 3: Generowanie przez mkisofs (starsza specyfikacja CD) ==="
+          mkisofs -iso-level 1 -o SNAKE_MKISOFS.ISO iso_root/
+          
+          ls -la SNAKE_*.ISO
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SNAKE_GAME.ISO
-          path: SNAKE_GAME.ISO
+          name: PS2_SNAKE_ALL_VARIANTS
+          path: SNAKE_*.ISO
           
