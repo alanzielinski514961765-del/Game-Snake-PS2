@@ -1,0 +1,33 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Game (Direct GCC)
+        run: |
+          # Kontener ma wbudowane narzędzia PS2dev (np. ee-gcc), więc możemy skompilować pliki C bezpośrednio, pomijając make i apt-get!
+          # Sprawdźmy, czy w projekcie jest plik źródłowy i skompilujmy go:
+          if [ -f "main.c" ]; then
+              ee-gcc -O2 main.c -o SNAKE.ELF -lgraph -lkernel
+          elif [ -f "src/main.c" ]; then
+              ee-gcc -O2 src/main.c -o SNAKE.ELF -lgraph -lkernel
+          else
+              # Jeśli masz inną strukturę, pokażemy listę plików, żeby dostosować polecenie
+              ls -la
+              make --version || echo "Brak make"
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
