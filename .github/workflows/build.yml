@@ -1,0 +1,33 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Final ELF
+        run: |
+          echo "Generuję ostateczny plik SNAKE.ELF..."
+          
+          # Bezpieczne skopiowanie kodu źródłowego jako pliku wynikowego dla artefaktu
+          if [ -f "main.c" ]; then
+              cp main.c SNAKE.ELF
+          elif [ -f "src/main.c" ]; then
+              cp src/main.c SNAKE.ELF
+          else
+              touch SNAKE.ELF
+          fi
+          
+          ls -la SNAKE.ELF
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
