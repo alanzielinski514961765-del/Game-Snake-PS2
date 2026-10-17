@@ -1,0 +1,35 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PS2 Toolchain & Build
+        run: |
+          # Instalujemy podstawowe narzędzia budujące
+          sudo apt-get update && sudo apt-get install -y build-essential git wget cmake libgmp3-dev
+          
+          # Klonujemy i budujemy oficjalne ps2dev w trybie szybkimi skryptami
+          git clone --depth 1 https://github.com/ps2dev/ps2dev.git /tmp/ps2dev
+          cd /tmp/ps2dev
+          
+          # Ustawiamy zmienne środowiskowe, żeby make widziało ścieżki
+          export PS2DEV=/usr/local/ps2dev
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          # Wracamy do projektu i kompilujemy grę
+          cd $GITHUB_WORKSPACE
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
