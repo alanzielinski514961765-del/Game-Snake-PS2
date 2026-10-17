@@ -1,0 +1,37 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compile with PS2dev
+        run: |
+          # Oficjalne ścieżki dla obrazu ps2dev
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          # Sprawdzamy czy kompilator teraz odpowiada
+          echo "Wersja kompilatora:"
+          ee-gcc --version
+          
+          # Kompilujemy projekt bezpośrednio
+          if [ -d "src" ]; then
+              ee-gcc -O2 src/*.c -o SNAKE.ELF -L$PS2SDK/ee/lib -I$PS2SDK/ee/include -lgraph -lkernel
+          else
+              ee-gcc -O2 *.c -o SNAKE.ELF -L$PS2SDK/ee/lib -I$PS2SDK/ee/include -lgraph -lkernel
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
