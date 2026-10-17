@@ -1,0 +1,35 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PS2DEV from packages & Compile
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget lsb-release software-properties-common
+          
+          # Dodanie repozytorium ps2dev i instalacja gotowego toolchaina przez apt
+          wget -O - https://apt.ps2dev.io/keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps2dev-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/ps2dev-archive-keyring.gpg] https://apt.ps2dev.io/ stable main" | sudo tee /etc/apt/sources.list.d/ps2dev.list
+          sudo apt-get update
+          sudo apt-get install -y ps2dev-ee ps2dev-libs make
+          
+          # Ustawienie ścieżek i odpalenie make
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
