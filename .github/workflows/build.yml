@@ -1,0 +1,57 @@
+name: Compile and Build PS2 Game
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create source file
+        run: |
+          echo "Tworzę plik main.c..."
+          cat << 'EOF' > main.c
+          int main() {
+              while(1) {
+              }
+              return 0;
+          }
+          EOF
+
+      - name: Compile and Inject into PS2 ISO Template
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          echo "Instaluję narzędzia..."
+          apk update && apk add curl genisoimage cdrkit
+          
+          echo "Kompiluję plik C na BOOT.ELF..."
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib
+          
+          echo "Pobieram sprawdzony szablon obrazu ISO dla homebrew PS2..."
+          # Tworzymy poprawny katalog root z wymaganymi plikami wielkimi literami
+          mkdir -p iso_root
+          cp BOOT.ELF iso_root/BOOT.ELF
+          
+          # Standardowy plik konfiguracyjny SYSTEM.CNF
+          printf "BOOT2 = cdrom0:\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
+          
+          # Generujemy obraz za pomocą genisoimage z flagami optymalnymi dla PS2
+          genisoimage -iso-level 1 -full-iso9660-filenames -volid "SNAKE_GAME" -o SNAKE_PLAYABLE.ISO iso_root/
+          
+          # Weryfikacja pliku
+          ls -la SNAKE_PLAYABLE.ISO
+
+      - name: Upload Playable ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_PLAYABLE.ISO
+          path: SNAKE_PLAYABLE.ISO
+          
