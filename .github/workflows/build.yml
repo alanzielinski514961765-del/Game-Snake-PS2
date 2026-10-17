@@ -1,0 +1,36 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential wget git
+          
+          # Pobranie gotowego, prekompilowanego toolchaina dla PS2 bezpośrednio z GitHub Releases ps2dev
+          wget https://github.com/ps2dev/ps2toolchain/releases/download/v2024-03-27/ps2dev-ubuntu-latest.tar.gz -O /tmp/ps2dev.tar.gz || \
+          wget https://github.com/ps2dev/ps2toolchain/releases/latest/download/ps2dev-ubuntu-latest.tar.gz -O /tmp/ps2dev.tar.gz
+          
+          sudo mkdir -p /usr/local/ps2dev
+          sudo tar -xzf /tmp/ps2dev.tar.gz -C /usr/local/ps2dev --strip-components=1 || true
+          
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
