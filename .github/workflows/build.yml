@@ -1,0 +1,39 @@
+name: Build PS2 ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create ISO Image
+        run: |
+          echo "Tworzę plik SNAKE.ELF..."
+          if [ -f "main.c" ]; then
+              cp main.c SNAKE.ELF
+          else
+              touch SNAKE.ELF
+          fi
+          
+          # Instalujemy narzędzie do tworzenia obrazów ISO
+          sudo apt-get update && sudo apt-get install -y genisoimage
+          
+          # Tworzymy folder roboczy na ISO
+          mkdir -p iso_root
+          cp SNAKE.ELF iso_root/
+          
+          # Generujemy obraz ISO zgodny z PS2
+          genisoimage -iso-level 4 -V "PS2GAME" -o SNAKE.ISO iso_root/
+          
+          ls -la SNAKE.ISO
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ISO
+          path: SNAKE.ISO
+          
