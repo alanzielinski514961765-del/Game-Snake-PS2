@@ -13,20 +13,27 @@ jobs:
 
       - name: Create source file
         run: |
-          echo "Tworzę poprawiony plik main.c..."
+          echo "Tworzę stabilny kod main.c..."
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
           #include <sifrpc.h>
+          #include <loadfile.h>
+          #include <graph.h>
+          #include <draw.h>
+          #include <packet.h>
 
           int main() {
-              // Inicjalizacja SIF RPC wymagana do komunikacji EE<->IOP
               SifInitRpc(0);
-              
+
+              // Inicjalizacja ekranu graficznego w trybie NTSC
+              graph_set_mode(0, GRAPH_MODE_NTSC, GRAPH_INTERLACE, GRAPH_FIELD);
+
+              // Główna pętla gry
               while(1) {
-                  // Pusta pętla gry
+                  // Tutaj dodamy logikę węża
               }
-              
+
               return 0;
           }
           EOF
@@ -41,23 +48,18 @@ jobs:
           echo "Instaluję xorriso..."
           apk update && apk add xorriso
           
-          echo "Kompiluję kod C z użyciem PS2SDK..."
+          echo "Kompiluję kod C..."
           mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF \
               -I$PS2SDK/common/include \
               -I$PS2SDK/ee/include \
               -L$PS2SDK/ee/lib \
-              -lkernel -lsifrpc -lcodecs
+              -lkernel -lsifrpc -lgraph -ldraw -lpacket -ldma
           
-          # Przygotowujemy katalog pod ISO
           mkdir -p iso_root
           cp BOOT.ELF iso_root/BOOT.ELF
-          
-          # SYSTEM.CNF
           printf "BOOT2 = cdrom0:\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
           
-          echo "Generuję obraz ISO..."
           xorriso -as mkisofs -iso-level 1 -o SNAKE_PLAYABLE.ISO iso_root/
-          
           ls -la SNAKE_PLAYABLE.ISO
 
       - name: Upload Playable ISO
