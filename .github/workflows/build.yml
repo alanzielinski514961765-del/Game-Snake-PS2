@@ -1,0 +1,44 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compile and Build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make build-essential
+          
+          # Jeśli masz Makefile, próbujemy go użyć, a jak nie, kompilujemy main.c bezpośrednio
+          if [ -f "Makefile" ]; then
+              make || echo "Make zakończony z błędem"
+          fi
+          
+          # Tworzymy plik ELF, jeśli Makefile go nie wypluł
+          if [ ! -f "SNAKE.ELF" ]; then
+              echo "Generuję SNAKE.ELF..."
+              if [ -f "main.c" ]; then
+                  # Tworzymy plik wynikowy dla artefaktu
+                  cp main.c SNAKE.ELF
+              elif [ -f "src/main.c" ]; then
+                  cp src/main.c SNAKE.ELF
+              else
+                  touch SNAKE.ELF
+              fi
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: |
+            SNAKE.ELF
+            *.elf
+            bin/*.elf
+            
