@@ -1,0 +1,33 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PS2DEV Environment & Make
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make wget curl lsb-release software-properties-common
+          
+          # Pobieramy bezpośrednio oficjalny skrypt instalacyjny ps2dev dla Ubuntu
+          sudo wget -qO- https://raw.githubusercontent.com/ps2dev/ps2dev/master/bin/setup-ubuntu.sh | sudo bash || true
+
+      - name: Compile project
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          make
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
