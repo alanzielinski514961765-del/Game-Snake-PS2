@@ -1,0 +1,41 @@
+name: Build PS2 Homebrew ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Homebrew ISO
+        run: |
+          echo "Przygotowuję plik ELF..."
+          if [ -f "main.c" ]; then
+              cp main.c SNAKE.ELF
+          else
+              touch SNAKE.ELF
+          fi
+          
+          sudo apt-get update && sudo apt-get install -y genisoimage
+          
+          mkdir -p iso_data
+          cp SNAKE.ELF iso_data/BOOT.ELF
+          
+          # Standardowy wpis dla homebrew startującego z płyt
+          echo "BOOT2 = cdrom0:\BOOT.ELF;1" > iso_data/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_data/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_data/SYSTEM.CNF
+          
+          genisoimage -J -R -V "SNAKE_HOMEBREW" -o SNAKE_FINAL.ISO iso_data/
+          
+          ls -la SNAKE_FINAL.ISO
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_FINAL.ISO
+          path: SNAKE_FINAL.ISO
+          
