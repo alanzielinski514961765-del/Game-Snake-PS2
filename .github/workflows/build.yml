@@ -1,0 +1,32 @@
+name: Build PS2
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          apk update && apk add xorriso
+          
+          echo 'int main() { while(1); return 0; }' > main.c
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
+          
+          mkdir -p iso_root
+          cp BOOT.ELF iso_root/BOOT.ELF
+          echo "BOOT2 = cdrom0:\BOOT.ELF;1" > iso_root/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_root/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_root/SYSTEM.CNF
+          
+          xorriso -as mkisofs -iso-level 1 -o SNAKE_PLAYABLE.ISO -V "GAME" iso_root/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_PLAYABLE.ISO
+          path: SNAKE_PLAYABLE.ISO
+          
