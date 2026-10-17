@@ -5,39 +5,37 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up environment and build
+      - name: Build and Package
         run: |
-          # Instalujemy xorriso bezpośrednio na Ubuntu (unikamy problemów z apk w kontenerze)
-          sudo apt-get update && sudo apt-get install -y xorriso build-essential
-
-          # Pobieramy oficjalne toolchainy ps2dev lub używamy prostego kompilatora, 
-          # ale zostawiamy Twojego gcc skoro masz go w kontenerze. 
-          # Poniżej robimy to czysto na natywnym Ubuntu z kontenerem:
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ps2dev/ps2dev:latest /bin/bash -c "
-            export PS2DEV=/usr/local/ps2dev
-            export PS2SDK=\$PS2DEV/ps2sdk
-            export PATH=\$PATH:\$PS2DEV/bin:\$PS2DEV/ee/bin:\$PS2DEV/iop/bin:\$PS2DEV/dvp/bin
-            
-            echo 'int main() { while(1); return 0; }' > main.c
-            mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
-            
-            mkdir -p iso_root
-            cp BOOT.ELF iso_root/BOOT.ELF
-            
-            # Poprawny zapis SYSTEM.CNF dla PS2
-            echo -e 'BOOT2 = cdrom0:\\BOOT.ELF;1\r\nVER = 1.00\r\nVMODE = NTSC\r' > iso_root/SYSTEM.CNF
-            
-            # Prawidłowe generowanie obrazu ISO dla PS2 (bez flag emulacji PC)
-            xorriso -as mkisofs \
-              -iso-level 4 \
-              -l \
-              -o SNAKE_GAME.ISO \
-              iso_root/
-          "
-
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          # Instalacja xorriso i pythona w Alpine
+          apk update && apk add xorriso python3
+          
+          # Tworzymy prosty kod główny gry
+          echo 'int main() { while(1); return 0; }' > main.c
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
+          
+          # Tworzenie katalogu głównego płyty
+          mkdir -p iso_root
+          cp BOOT.ELF iso_root/BOOT.ELF
+          
+          # Bezpośredni i czysty zapis SYSTEM.CNF (bez dziwnych znaków ucieczki, które mogłyby zmylić system)
+          printf "BOOT2 = cdrom0:\\\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
+          
+          # Generowanie czystego ISO za pomocą xorriso w trybie zgodnym z ISO9660
+          xorriso -as mkisofs \
+            -iso-level 1 \
+            -full-iso9660-filenames \
+            -o SNAKE_GAME.ISO \
+            iso_root/
+          
           ls -la SNAKE_GAME.ISO
 
       - uses: actions/upload-artifact@v4
