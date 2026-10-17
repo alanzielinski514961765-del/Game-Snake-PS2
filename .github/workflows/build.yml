@@ -1,0 +1,73 @@
+name: Compile and Build PS2 Game
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create source file
+        run: |
+          echo "Tworzę właściwy plik main.c..."
+          cat << 'EOF' > main.c
+          #include <tamtypes.h>
+          #include <kernel.h>
+          #include <sifcmd.h>
+          #include <gs_gp.h>
+
+          int main() {
+              // Inicjalizacja podstawowych systemów PS2
+              SifInitRpc(0);
+              
+              // Prosta pętla główna gry (na razie zmieniająca stan/ekran)
+              int counter = 0;
+              while(1) {
+                  counter++;
+                  // Tutaj w przyszłości dodamy logikę węża i rysowanie kwadracików
+              }
+              
+              return 0;
+          }
+          EOF
+
+      - name: Compile and Package PS2 ISO via xorriso
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          echo "Instaluję xorriso..."
+          apk update && apk add xorriso
+          
+          echo "Kompiluję kod C z użyciem PS2SDK..."
+          # Używamy oficjalnych nagłówków i bibliotek z SDK do kompilacji pliku ELF
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF \
+              -I$PS2SDK/common/include \
+              -I$PS2SDK/ee/include \
+              -L$PS2SDK/ee/lib \
+              -lkernel
+          
+          # Przygotowujemy katalog pod ISO
+          mkdir -p iso_root
+          cp BOOT.ELF iso_root/BOOT.ELF
+          
+          # SYSTEM.CNF
+          printf "BOOT2 = cdrom0:\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
+          
+          echo "Generuję obraz ISO..."
+          xorriso -as mkisofs -iso-level 1 -o SNAKE_PLAYABLE.ISO iso_root/
+          
+          ls -la SNAKE_PLAYABLE.ISO
+
+      - name: Upload Playable ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_PLAYABLE.ISO
+          path: SNAKE_PLAYABLE.ISO
+          
