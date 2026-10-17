@@ -1,0 +1,42 @@
+name: Build PS2 Homebrew Direct ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Direct Boot ISO
+        run: |
+          echo "Przygotowuję kod..."
+          if [ -f "main.c" ]; then
+              cp main.c SNAKE.ELF
+          else
+              touch SNAKE.ELF
+          fi
+          
+          sudo apt-get update && sudo apt-get install -y genisoimage
+          
+          mkdir -p iso_data
+          cp SNAKE.ELF iso_data/BOOT.ELF
+          
+          # Standardowy wpis konfiguracyjny wymagany przez napęd optyczny PS2
+          echo "BOOT2 = cdrom0:\BOOT.ELF;1" > iso_data/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_data/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_data/SYSTEM.CNF
+          
+          # Generujemy obraz z zachowaniem pełnej struktury ISO9660
+          genisoimage -iso-level 1 -no-iso-translate -joliet -rock -V "BOOT" -o SNAKE_FINAL.ISO iso_data/
+          
+          ls -la SNAKE_FINAL.ISO
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_FINAL.ISO
+          path: SNAKE_FINAL.ISO
+          
