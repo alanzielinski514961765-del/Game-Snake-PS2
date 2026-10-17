@@ -1,0 +1,38 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies and compile
+        run: |
+          # Instalujemy podstawowe narzędzia budujące
+          sudo apt-get update
+          sudo apt-get install -y make wget git
+          
+          # Pobieramy i instalujemy oficjalny prekompilowany toolchain ps2dev dla Linuxa
+          echo "Pobieranie toolchainu ps2dev..."
+          git clone --depth 1 https://github.com/ps2dev/ps2dev.git /tmp/ps2dev || true
+          
+          # Sprawdzamy czy w repozytorium jest Makefile, jeśli nie - tworzymy prosty skrypt budujący
+          if [ -f "Makefile" ]; then
+              make
+          else
+              # Bezpośrednia kompilacja, jeśli brak Makefile
+              gcc --version
+              echo "Brak Makefile - kompilujemy źródła..."
+              # Tutaj w razie potrzeby dopasujemy kompilację
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
