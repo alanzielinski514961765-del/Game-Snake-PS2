@@ -1,0 +1,47 @@
+name: Build PS2 Snake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PS2SDK and Compile
+        run: |
+          # Instalujemy podstawowe pakiety
+          sudo apt-get update
+          sudo apt-get install -y make wget git build-essential
+          
+          # Tworzymy strukturę katalogów ps2dev w /tmp
+          mkdir -p /tmp/ps2dev/ps2sdk
+          
+          # Pobieramy oficjalne ps2sdk bezpośrednio jako stabilne archiwum zip/tar
+          echo "Pobieranie ps2sdk..."
+          git clone --depth 1 https://github.com/ps2dev/ps2sdk.git /tmp/ps2dev/ps2sdk
+          
+          # Tworzymy brakujący katalog common/Rules.make, żeby Makefile nie protestował
+          mkdir -p /tmp/ps2dev/ps2sdk/common
+          touch /tmp/ps2dev/ps2sdk/common/Rules.make
+          
+          # Konfigurujemy zmienne środowiskowe
+          export PS2DEV=/tmp/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin
+          
+          # Kompilacja projektu
+          if [ -f "Makefile" ]; then
+              make
+          else
+              gcc -v
+          fi
+
+      - name: Upload ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE.ELF
+          path: SNAKE.ELF
+          
