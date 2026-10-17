@@ -1,0 +1,58 @@
+name: Compile and Build PS2 Game
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create source file
+        run: |
+          echo "Tworzę plik main.c..."
+          cat << 'EOF' > main.c
+          int main() {
+              while(1) {
+              }
+              return 0;
+          }
+          EOF
+
+      - name: Compile Direct and Package ISO
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          echo "Instaluję cdrkit przez apk..."
+          apk update && apk add cdrkit
+          
+          echo "Kompiluję czysty plik C..."
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o SNAKE.ELF -nostdlib
+          
+          ls -la SNAKE.ELF
+          
+          # Przygotowujemy strukturę katalogów
+          mkdir -p iso_root
+          cp SNAKE.ELF iso_root/BOOT.ELF
+          
+          # SYSTEM.CNF w formacie akceptowanym przez BIOS PS2
+          echo "BOOT2 = cdrom0:\BOOT.ELF;1" > iso_root/SYSTEM.CNF
+          echo "VER = 1.00" >> iso_root/SYSTEM.CNF
+          echo "VMODE = NTSC" >> iso_root/SYSTEM.CNF
+          
+          # Kluczowe: genisoimage z odpowiednimi flagami dla struktury dysku PS2 (ISO9660 Level 1 / Rock Ridge)
+          genisoimage -no-emul-boot -b BOOT.ELF -iso-level 3 -joliet -rock -V "SNAKE_GAME" -o SNAKE_PLAYABLE.ISO iso_root/
+          ls -la SNAKE_PLAYABLE.ISO
+
+      - name: Upload Playable ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_PLAYABLE.ISO
+          path: SNAKE_PLAYABLE.ISO
+          
