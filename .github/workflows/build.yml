@@ -1,4 +1,4 @@
-name: Build PS2 ISO Direct
+name: Build PS2 ISO Final Clean
 
 on: [push]
 
@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Package Direct
+      - name: Build and Package Clean
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
@@ -17,21 +17,19 @@ jobs:
           
           apk update && apk add xorriso
           
-          # Tworzymy bezpośredni kod testowy w C dla PS2
-          echo '#include <tamtypes.h>' > main.c
-          echo '#include <kernel.h>' >> main.c
-          echo 'int main() { while(1) {} return 0; }' >> main.c
+          # Czysty kod C z pustą pętlą
+          echo 'int main() { while(1) {} return 0; }' > main.c
           
-          # Bezpośrednia kompilacja kompilatorem MIPS bez zewnętrznych reguł make
+          # Kompilacja bezpośrednia
           mips64r5900el-ps2-elf-gcc -O2 main.c -o BOOT.ELF -nostdlib -Wl,-Ttext,0x198000
           
           mkdir -p iso_root
           cp BOOT.ELF iso_root/BOOT.ELF
           
-          # Krytyczny SYSTEM.CNF z wielkimi literami
+          # SYSTEM.CNF z poprawną ścieżką
           printf "BOOT2 = cdrom0:\\\\BOOT.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
           
-          # Generowanie ISO przez xorriso
+          # Generowanie ISO
           xorriso -as mkisofs \
             -iso-level 1 \
             -full-iso9660-filenames \
