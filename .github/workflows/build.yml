@@ -2,11 +2,6 @@ name: Build PS2 ISO Native
 
 on: [push]
 
-env:
-  PS2DEV: /usr/local/ps2dev
-  PS2SDK: /usr/local/ps2dev/ps2sdk
-  PATH: /usr/local/ps2dev/bin:/usr/local/ps2dev/ee/bin:/usr/local/ps2dev/iop/bin:/usr/local/ps2dev/dvp/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,8 +9,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile and Generate ISO natively
+      - name: Dynamiczny szukacz i kompilator gry
         run: |
+          echo "=== DIAGNOSTYKA KONTENERA ==="
+          find / -name "ee-gcc" 2>/dev/null || true
+          
+          # Dynamiczne znalezienie ścieżki do ee-gcc bez zgadywania
+          EE_GCC_PATH=$(find /usr/local -name "ee-gcc" -type f 2>/dev/null | head -n 1)
+          
+          if [ -z "$EE_GCC_PATH" ]; then
+            echo "BŁĄD: Nie znaleziono ee-gcc w /usr/local!"
+            exit 1
+          fi
+          
+          echo "Znaleziono ee-gcc w: $EE_GCC_PATH"
+          
+          # Wyznaczenie katalogu SDK na podstawie znalezionej ścieżki kompilatora
+          # (np. /usr/local/ps2dev/ee/bin/ee-gcc -> /usr/local/ps2dev/ps2sdk)
+          PS2DEV_BASE=$(dirname $(dirname $(dirname $EE_GCC_PATH)))
+          PS2SDK_DIR="$PS2DEV_BASE/ps2sdk"
+          echo "Używam bazowego folderu: $PS2DEV_BASE"
+          echo "Używam PS2SDK: $PS2SDK_DIR"
+
+          # Tworzenie pełnego kodu gry Snake (ruch, sterowanie padem, renderowanie 2D)
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -46,7 +62,6 @@ jobs:
 
               padPortOpen(0, 0, pad_buf);
 
-              // Inicjalizacja węża (rusza się sam w prawo)
               Vector2 snake[50];
               int snake_len = 3;
               snake[0] = (Vector2){16, 11};
@@ -59,7 +74,6 @@ jobs:
               int frame_counter = 0;
 
               while(1) {
-                  // Odczyt pada PS2 (sterowanie kierunkiem)
                   struct padButtonStatus buttons;
                   if (padRead(0, 0, &buttons) > 0) {
                       u32 paddata = 0xffff ^ buttons.btns;
@@ -69,7 +83,6 @@ jobs:
                       else if ((paddata & PAD_DOWN) && dy == 0) { dx = 0; dy = 1; }
                   }
 
-                  // Logika ruchu węża (automatyczny ruch co kilkanaście klatek)
                   if (++frame_counter > 15) {
                       frame_counter = 0;
                       for (int i = snake_len - 1; i > 0; i--) {
@@ -78,13 +91,11 @@ jobs:
                       snake[0].x += dx;
                       snake[0].y += dy;
 
-                      // Przechodzenie przez krawędzie ekranu
                       if (snake[0].x < 0) snake[0].x = (SCREEN_WIDTH / BLOCK_SIZE) - 1;
                       if (snake[0].x >= SCREEN_WIDTH / BLOCK_SIZE) snake[0].x = 0;
                       if (snake[0].y < 0) snake[0].y = (SCREEN_HEIGHT / BLOCK_SIZE) - 1;
                       if (snake[0].y >= SCREEN_HEIGHT / BLOCK_SIZE) snake[0].y = 0;
 
-                      // Zjadanie jabłka i rośnięcie
                       if (snake[0].x == apple.x && snake[0].y == apple.y) {
                           if (snake_len < 50) snake_len++;
                           apple.x = (apple.x * 7 + 3) % (SCREEN_WIDTH / BLOCK_SIZE);
@@ -92,17 +103,14 @@ jobs:
                       }
                   }
 
-                  // Renderowanie grafiki 2D (tło, jabłko, wąż)
                   q = packet;
                   q = draw_clear(q, 0, 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 15, 30);
 
-                  // Rysowanie jabłka (czerwony kwadrat)
                   q = draw_rect(q, 0, 
                       (float)(apple.x * BLOCK_SIZE), (float)(apple.y * BLOCK_SIZE), 
                       (float)BLOCK_SIZE, (float)BLOCK_SIZE, 
                       255, 0, 0);
 
-                  // Rysowanie węża (zielone kwadraty)
                   for (int i = 0; i < snake_len; i++) {
                       q = draw_rect(q, 0, 
                           (float)(snake[i].x * BLOCK_SIZE), (float)(snake[i].y * BLOCK_SIZE), 
@@ -119,14 +127,20 @@ jobs:
           }
           EOF
 
-          ee-gcc -O2 main.c -o SLES_555.55 -L$PS2SDK/ee/lib -lpad -lgraph -ldraw -lkernel -lc
+          # Kompilacja przy użyciu w 100% pewnej, dynamicznie namierzonej ścieżki
+          "$EE_GCC_PATH" -O2 main.c -o SLES_555.55 \
+            -I"$PS2SDK_DIR/ee/include" \
+            -I"$PS2SDK_DIR/common/include" \
+            -L"$PS2SDK_DIR/ee/lib" \
+            -lpad -lgraph -ldraw -lkernel -lc
           
+          # Pakowanie do ISO
+          apk update && apk add xorriso
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
-          
-          apk update && apk add xorriso
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
+          
           ls -la SNAKE_GAME.ISO
 
       - uses: actions/upload-artifact@v4
