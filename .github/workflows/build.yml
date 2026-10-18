@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile and Generate ISO natively
+      - name: Compile and Generate ISO natively Dawaj Huju JD
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
@@ -28,8 +28,13 @@ jobs:
           }
           EOF
 
-          # Kompilacja uwzględniająca ścieżki do nagłówków PS2SDK
-          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 -I$PS2SDK/include -I$PS2SDK/ee/include -L$PS2SDK/lib -nostdlib -Wl,-Ttext,0x198000
+          # Kompilacja z pełnymi ścieżkami do nagłówków PS2SDK
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 \
+            -I$PS2SDK/common/include \
+            -I$PS2SDK/ee/include \
+            -I$PS2SDK/ee/kernel/include \
+            -L$PS2SDK/ee/lib \
+            -nostdlib -Wl,-Ttext,0x198000
           
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
