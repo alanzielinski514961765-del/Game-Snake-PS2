@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Pełny kod gry Snake dla PlayStation 2
+          # Kod gry Snake z poprawnym nagłówkiem <libpad.h>
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -25,7 +25,7 @@ jobs:
           #include <sifrpc.h>
           #include <graph.h>
           #include <draw.h>
-          #include <pad.h>
+          #include <libpad.h>
 
           #define SCREEN_WIDTH  640
           #define SCREEN_HEIGHT 448
@@ -70,7 +70,7 @@ jobs:
               int frame_counter = 0;
 
               while(1) {
-                  // Obsługa pada (analog / dpad)
+                  // Obsługa pada
                   struct padButtonStatus buttons;
                   if (padRead(0, 0, &buttons) > 0) {
                       u32 paddata = 0xffff ^ buttons.btns;
@@ -80,11 +80,10 @@ jobs:
                       else if ((paddata & PAD_DOWN) && dy == 0) { dx = 0; dy = 1; }
                   }
 
-                  // Wolniejsze tempo ruchu węża (aktualizacja co kilka klatek)
+                  // Tempo ruchu węża
                   if (++frame_counter > 15) {
                       frame_counter = 0;
                       
-                      // Przesunięcie ciała węża
                       for (int i = snake_len - 1; i > 0; i--) {
                           snake[i] = snake[i - 1];
                       }
@@ -100,25 +99,20 @@ jobs:
                       }
                   }
 
-                  // Czyszczenie ekranu (kolor czarny)
+                  // Rysowanie grafiki
                   draw_clear(&fb, 0, 0, 0);
-
-                  // Rysowanie jabłka (czerwony kwadrat)
-                  draw_rect(&fb, apple.x * BLOCK_SIZE, apple.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 0, 0, 255);
-
-                  // Rysowanie węża (zielone kwadraty)
+                  draw_rect(&fb, apple.x * BLOCK_SIZE, apple.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 255, 0, 0);
                   for (int i = 0; i < snake_len; i++) {
                       draw_rect(&fb, snake[i].x * BLOCK_SIZE, snake[i].y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 0, 255, 0);
                   }
 
-                  // Synchronizacja klatek
                   graph_wait_vsync();
               }
               return 0;
           }
           EOF
 
-          # Makefile
+          # Makefile z poprawnymi bibliotekami (-lpad) i bezpiecznym czyszczeniem
           cat << 'EOF' > Makefile
           EE_BIN = SLES_555.55
           EE_OBJS = main.o
@@ -129,6 +123,10 @@ jobs:
           	cp $(EE_BIN) iso_dir/SLES_555.55
           	printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
           	xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
+
+          clean:
+          	rm -f $(EE_BIN) $(EE_OBJS) SNAKE_GAME.ISO
+          	rm -rf iso_dir
 
           include $(PS2SDK)/samples/Makefile.pref
           include $(PS2SDK)/samples/Makefile.eeglobal
