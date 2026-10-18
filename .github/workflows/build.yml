@@ -17,13 +17,23 @@ jobs:
 
       - name: Kompilacja kodu i budowa ISO w kontenerze
         run: |
-          # Jawne ustawienie ścieżek dla standardowego sh w kontenerze ps2dev
+          echo "Szukam gdzie ukrył się ee-gcc..."
+          find / -name "ee-gcc" 2>/dev/null
+          
+          # Ustawiamy ścieżki tam, gdzie faktycznie żyje ten kompilator w tym obrazie
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
-          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PATH
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2EE/bin
 
-          echo "Sprawdzanie kompilatora:"
-          ee-gcc --version
+          # Próbujemy znaleźć i odpalić kompilator bezpośrednio po pełnej ścieżce jeśli PATH zawiedzie
+          EE_GCC=$(find / -name "ee-gcc" 2>/dev/null | head -n 1)
+          if [ -z "$EE_GCC" ]; then
+            echo "BŁĄD: Nie znaleziono ee-gcc w całym kontenerze!"
+            exit 1
+          fi
+          
+          echo "Znaleziono kompilator w: $EE_GCC"
+          $EE_GCC --version
 
           echo "Kompilowanie projektu za pomocą Make..."
           make
@@ -32,10 +42,8 @@ jobs:
           mkdir -p iso_root
           cp SLES_555.55 iso_root/SLES_555.55
           
-          # Plik konfiguracyjny startowy dla PS2 / emulatorów
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
 
-          # Instalacja xorriso i generowanie ISO
           apt-get update && apt-get install -y xorriso
           
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_PS2.ISO iso_root/
