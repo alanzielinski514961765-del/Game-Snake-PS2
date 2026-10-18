@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Poprawiony kod gry Snake z pełną zgodnością z API draw.h i libpad.h
+          # Poprawiony kod z poprawnym przekazaniem wskaźnika do draw_finish
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -63,14 +63,13 @@ jobs:
                       }
                   }
 
-                  // Bezpieczne czyszczenie ekranu za pomocą oficjalnego API draw
+                  // Czyszczenie ekranu i prawidłowe zamknięcie pakietu graficznego
                   qword_t q[256];
                   qword_t *q_ptr = q;
                   q_ptr = draw_clear(q_ptr, 0, 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0);
+                  q_ptr = draw_finish(q_ptr);
                   
-                  // Przesłanie bufora do Graphic Synthesizer
                   draw_exec_packet(q, q_ptr - q);
-                  draw_finish();
 
                   graph_wait_vsync();
               }
