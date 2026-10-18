@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Tworzymy plik kodu gry
+          # Tworzymy plik kodu gry od razu w locie
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -28,9 +28,14 @@ jobs:
           }
           EOF
 
-          # Uruchomienie gotowego Makefile z repozytorium
-          make clean
-          make
+          # Bezpośrednia kompilacja i budowanie struktury ISO bez zbędnych plików makefile
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 -nostdlib -Wl,-Ttext,0x198000
+          
+          mkdir -p iso_dir
+          cp SLES_555.55 iso_dir/SLES_555.55
+          printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
+          
+          xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
           
           ls -la SNAKE_GAME.ISO
 
