@@ -9,29 +9,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Dynamiczny szukacz i kompilator gry
+      - name: Globalny szukacz ee-gcc i kompilacja
         run: |
-          echo "=== DIAGNOSTYKA KONTENERA ==="
+          echo "=== SZUKAM EE-GCC W CAŁYM SYSTEMIE ==="
           find / -name "ee-gcc" 2>/dev/null || true
           
-          # Dynamiczne znalezienie ścieżki do ee-gcc bez zgadywania
-          EE_GCC_PATH=$(find /usr/local -name "ee-gcc" -type f 2>/dev/null | head -n 1)
+          # Dynamiczne namierzenie kompilatora w dowolnym miejscu w kontenerze
+          EE_GCC_PATH=$(find / -name "ee-gcc" -type f 2>/dev/null | head -n 1)
           
           if [ -z "$EE_GCC_PATH" ]; then
-            echo "BŁĄD: Nie znaleziono ee-gcc w /usr/local!"
+            echo "BŁĄD KRYTYCZNY: Nie znaleziono ee-gcc nigdzie w kontenerze!"
             exit 1
           fi
           
           echo "Znaleziono ee-gcc w: $EE_GCC_PATH"
           
-          # Wyznaczenie katalogu SDK na podstawie znalezionej ścieżki kompilatora
-          # (np. /usr/local/ps2dev/ee/bin/ee-gcc -> /usr/local/ps2dev/ps2sdk)
-          PS2DEV_BASE=$(dirname $(dirname $(dirname $EE_GCC_PATH)))
-          PS2SDK_DIR="$PS2DEV_BASE/ps2sdk"
-          echo "Używam bazowego folderu: $PS2DEV_BASE"
+          # Automatyczne wyznaczenie katalogu SDK
+          PS2DEV_DIR=$(dirname $(dirname $(dirname "$EE_GCC_PATH")))
+          PS2SDK_DIR="$PS2DEV_DIR/ps2sdk"
+          echo "Używam bazowego folderu: $PS2DEV_DIR"
           echo "Używam PS2SDK: $PS2SDK_DIR"
 
-          # Tworzenie pełnego kodu gry Snake (ruch, sterowanie padem, renderowanie 2D)
+          # Kod pełnej gry Snake
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -127,7 +126,7 @@ jobs:
           }
           EOF
 
-          # Kompilacja przy użyciu w 100% pewnej, dynamicznie namierzonej ścieżki
+          # Kompilacja za pomocą faktycznie znalezionej ścieżki
           "$EE_GCC_PATH" -O2 main.c -o SLES_555.55 \
             -I"$PS2SDK_DIR/ee/include" \
             -I"$PS2SDK_DIR/common/include" \
