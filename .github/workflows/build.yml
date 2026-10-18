@@ -1,0 +1,66 @@
+name: Build PS2 ISO Native
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile and Generate ISO natively
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin
+          
+          apk update && apk add xorriso make
+          
+          # Tworzymy strukturę kodu gry
+          cat << 'EOF' > main.c
+          #include <tamtypes.h>
+          #include <kernel.h>
+          #include <sifcmd.h>
+          #include <audsrv.h>
+          
+          int main(int argc, char *argv[]) {
+              // Pętla główna gry węż
+              while(1) {
+                  // Tutaj wejdzie cała logika węża
+              }
+              return 0;
+          }
+          EOF
+
+          # Makefile bezpośrednio integrujący pliki w strukturę ISO
+          cat << 'EOF' > Makefile
+          EE_BIN = SLES_555.55
+          EE_OBJS = main.o
+          EE_LIBS = -lc
+          
+          all: $(EE_BIN)
+              mkdir -p iso_dir
+              cp $(EE_BIN) iso_dir/SLES_555.55
+              printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
+              xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
+
+          clean:
+              rm -f $(EE_BIN) $(EE_OBJS) SNAKE_GAME.ISO
+              rm -rf iso_dir
+
+          include $(PS2SDK)/samples/Makefile.pref
+          include $(PS2SDK)/samples/Makefile.eeglobal
+          EOF
+
+          # Uruchomienie budowania natywnego ISO
+          make clean
+          make
+          
+          ls -la SNAKE_GAME.ISO
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SNAKE_GAME.ISO
+          path: SNAKE_GAME.ISO
+          
