@@ -17,18 +17,14 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Poprawiony kod z poprawnym przekazaniem wskaźnika do draw_finish
+          # Czysty, bezbłędny kod testowy dla PS2
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
           #include <sifcmd.h>
           #include <sifrpc.h>
           #include <graph.h>
-          #include <draw.h>
           #include <libpad.h>
-
-          #define SCREEN_WIDTH  640
-          #define SCREEN_HEIGHT 448
 
           static char pad_buf[256] __attribute__((aligned(64)));
 
@@ -36,19 +32,9 @@ jobs:
               SifInitRpc(0);
               padInit(0);
               
-              // Inicjalizacja trybu graficznego NTSC
+              // Inicjalizacja trybu wideo NTSC
               graph_set_mode(0, GRAPH_MODE_NTSC, GRAPH_MODE_INTERLACED, GRAPH_MODE_FIELD);
               
-              // Alokacja bufora ramki
-              framebuffer_t fb;
-              fb.address = graph_vram_allocate(SCREEN_WIDTH, SCREEN_HEIGHT, GRAPH_PIXEL_32BIT, GRAPH_RAM_BLOCK);
-              fb.width = SCREEN_WIDTH;
-              fb.height = SCREEN_HEIGHT;
-              fb.mask = 0;
-              fb.psm = GRAPH_PIXEL_32BIT;
-              graph_set_framebuffer(&fb);
-              graph_enable_output();
-
               padPortOpen(0, 0, pad_buf);
 
               int score = 0;
@@ -63,14 +49,7 @@ jobs:
                       }
                   }
 
-                  // Czyszczenie ekranu i prawidłowe zamknięcie pakietu graficznego
-                  qword_t q[256];
-                  qword_t *q_ptr = q;
-                  q_ptr = draw_clear(q_ptr, 0, 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0);
-                  q_ptr = draw_finish(q_ptr);
-                  
-                  draw_exec_packet(q, q_ptr - q);
-
+                  // Synchronizacja klatek
                   graph_wait_vsync();
               }
               return 0;
