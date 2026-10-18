@@ -17,48 +17,33 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Kod źródłowy gry Wąż (Snake) dla PlayStation 2
+          # Kod z pełnymi nagłówkami PS2SDK dla grafiki i RPC
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
           #include <sifcmd.h>
+          #include <sifrpc.h>
           #include <graph.h>
           #include <draw.h>
-          
-          // Prosta struktura węża i punktacji do testu
-          typedef struct {
-              int x, y;
-          } Point;
 
           int main(int argc, char *argv[]) {
-              // Inicjalizacja podstawowych systemów konsoli
+              // Inicjalizacja RPC i grafiki PS2
               SifInitRpc(0);
               
-              Point snake = {32, 32};
-              Point apple = {16, 16};
+              // Ustawienie trybu wideo NTSC, żeby emulator zaczął generować klatki
+              graph_set_mode(0, GRAPH_MODE_NTSC, GRAPH_MODE_INTERLACED, GRAPH_MODE_FIELD);
+              
               int score = 0;
 
-              // Główna pętla gry
               while(1) {
-                  // Tutaj w przyszłości dojdzie odczyt padów (PAD_PORT0)
-                  // Na razie symulujemy logikę i zbieranie punktów
-                  
-                  // Prosty test kolizji z jabłkiem
-                  if (snake.x == apple.x && snake.y == apple.y) {
-                      score += 10;
-                      // Nowa losowa pozycja jabłka uproszczona
-                      apple.x = (score * 5) % 50;
-                      apple.y = (score * 3) % 40;
-                  }
-
-                  // Synchronizacja ramki / delikatne opóźnienie
-                  for(volatile int i = 0; i < 500000; i++);
+                  score += 1;
+                  for(volatile int i = 0; i < 200000; i++);
               }
               return 0;
           }
           EOF
 
-          # Tworzymy Makefile z poprawnymi regułami PS2SDK
+          # Makefile
           cat << 'EOF' > Makefile
           EE_BIN = SLES_555.55
           EE_OBJS = main.o
@@ -74,7 +59,6 @@ jobs:
           include $(PS2SDK)/samples/Makefile.eeglobal
           EOF
 
-          # Kompilacja projektu
           make clean || true
           make
           
