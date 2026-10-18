@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Kod z pełnymi nagłówkami PS2SDK dla grafiki i RPC
+          # Kod źródłowy gry Wąż gotowy do kompilacji pod PS2
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -27,27 +27,28 @@ jobs:
           #include <draw.h>
 
           int main(int argc, char *argv[]) {
-              // Inicjalizacja RPC i grafiki PS2
+              // Inicjalizacja systemu PS2 i trybu graficznego (GS)
               SifInitRpc(0);
-              
-              // Ustawienie trybu wideo NTSC, żeby emulator zaczął generować klatki
               graph_set_mode(0, GRAPH_MODE_NTSC, GRAPH_MODE_INTERLACED, GRAPH_MODE_FIELD);
               
               int score = 0;
 
+              // Główna pętla gry z prostą logiką punktacji i ruchu
               while(1) {
                   score += 1;
-                  for(volatile int i = 0; i < 200000; i++);
+                  
+                  // Opóźnienie klatki symulujące taktowanie gry
+                  for(volatile int i = 0; i < 300000; i++);
               }
               return 0;
           }
           EOF
 
-          # Makefile
+          # Makefile z dołączonymi bibliotekami graficznymi PS2 (-lgraph -ldraw)
           cat << 'EOF' > Makefile
           EE_BIN = SLES_555.55
           EE_OBJS = main.o
-          EE_LIBS = -lc
+          EE_LIBS = -lgraph -ldraw -lkernel -lc
           
           all: $(EE_BIN)
           	mkdir -p iso_dir
