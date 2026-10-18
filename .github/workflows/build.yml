@@ -11,7 +11,9 @@ jobs:
 
       - name: Compile and Generate ISO natively
         run: |
-          apk update && apk add xorriso
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH="/usr/local/ps2dev/bin:/usr/local/ps2dev/ee/bin:$PATH"
 
           cat << 'EOF' > main.c
           #include <tamtypes.h>
@@ -30,13 +32,14 @@ jobs:
           }
           EOF
 
-          /usr/local/ps2dev/ee/bin/ee-gcc -O2 main.c -o SLES_555.55 -L/usr/local/ps2dev/ps2sdk/ee/lib -lpad -lgraph -ldraw -lkernel -lc
+          ee-gcc -O2 main.c -o SLES_555.55 -L$PS2SDK/ee/lib -lpad -lgraph -ldraw -lkernel -lc
           
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
+          
+          apt-get update && apt-get install -y xorriso
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
-          ls -la SNAKE_GAME.ISO
 
       - uses: actions/upload-artifact@v4
         with:
