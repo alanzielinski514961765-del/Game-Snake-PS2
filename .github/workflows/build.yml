@@ -28,8 +28,8 @@ jobs:
           }
           EOF
 
-          # Bezpośrednia kompilacja i budowanie struktury ISO bez zbędnych plików makefile
-          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 -nostdlib -Wl,-Ttext,0x198000
+          # Kompilacja uwzględniająca ścieżki do nagłówków PS2SDK
+          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 -I$PS2SDK/include -I$PS2SDK/ee/include -L$PS2SDK/lib -nostdlib -Wl,-Ttext,0x198000
           
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
