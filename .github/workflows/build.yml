@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Kod źródłowy gry Wąż gotowy do kompilacji pod PS2
+          # Pełny kod gry Snake dla PlayStation 2
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -25,30 +25,104 @@ jobs:
           #include <sifrpc.h>
           #include <graph.h>
           #include <draw.h>
+          #include <pad.h>
+
+          #define SCREEN_WIDTH  640
+          #define SCREEN_HEIGHT 448
+          #define BLOCK_SIZE    16
+
+          typedef struct {
+              int x, y;
+          } Vector2;
+
+          static char pad_buf[256] __attribute__((aligned(64)));
 
           int main(int argc, char *argv[]) {
-              // Inicjalizacja systemu PS2 i trybu graficznego (GS)
               SifInitRpc(0);
+              padInit(0);
+              
+              // Inicjalizacja grafiki NTSC
               graph_set_mode(0, GRAPH_MODE_NTSC, GRAPH_MODE_INTERLACED, GRAPH_MODE_FIELD);
               
-              int score = 0;
+              // Inicjalizacja bufora ramki i kontekstu rysowania
+              framebuffer_t fb;
+              fb.address = graph_vram_allocate(SCREEN_WIDTH, SCREEN_HEIGHT, GRAPH_PIXEL_32BIT, GRAPH_RAM_BLOCK);
+              fb.width = SCREEN_WIDTH;
+              fb.height = SCREEN_HEIGHT;
+              fb.mask = 0;
+              fb.psm = GRAPH_PIXEL_32BIT;
+              graph_set_framebuffer(&fb);
+              graph_enable_output();
 
-              // Główna pętla gry z prostą logiką punktacji i ruchu
+              padPortOpen(0, 0, pad_buf);
+
+              // Stan węża
+              Vector2 snake[100];
+              int snake_len = 3;
+              snake[0] = (Vector2){10, 10};
+              snake[1] = (Vector2){9, 10};
+              snake[2] = (Vector2){8, 10};
+
+              int dx = 1;
+              int dy = 0;
+              Vector2 apple = {15, 10};
+              int score = 0;
+              int frame_counter = 0;
+
               while(1) {
-                  score += 1;
-                  
-                  // Opóźnienie klatki symulujące taktowanie gry
-                  for(volatile int i = 0; i < 300000; i++);
+                  // Obsługa pada (analog / dpad)
+                  struct padButtonStatus buttons;
+                  if (padRead(0, 0, &buttons) > 0) {
+                      u32 paddata = 0xffff ^ buttons.btns;
+                      if ((paddata & PAD_LEFT) && dx == 0) { dx = -1; dy = 0; }
+                      else if ((paddata & PAD_RIGHT) && dx == 0) { dx = 1; dy = 0; }
+                      else if ((paddata & PAD_UP) && dy == 0) { dx = 0; dy = -1; }
+                      else if ((paddata & PAD_DOWN) && dy == 0) { dx = 0; dy = 1; }
+                  }
+
+                  // Wolniejsze tempo ruchu węża (aktualizacja co kilka klatek)
+                  if (++frame_counter > 15) {
+                      frame_counter = 0;
+                      
+                      // Przesunięcie ciała węża
+                      for (int i = snake_len - 1; i > 0; i--) {
+                          snake[i] = snake[i - 1];
+                      }
+                      snake[0].x += dx;
+                      snake[0].y += dy;
+
+                      // Zjedzenie jabłka
+                      if (snake[0].x == apple.x && snake[0].y == apple.y) {
+                          score += 10;
+                          if (snake_len < 100) snake_len++;
+                          apple.x = (score * 3) % (SCREEN_WIDTH / BLOCK_SIZE);
+                          apple.y = (score * 7) % (SCREEN_HEIGHT / BLOCK_SIZE);
+                      }
+                  }
+
+                  // Czyszczenie ekranu (kolor czarny)
+                  draw_clear(&fb, 0, 0, 0);
+
+                  // Rysowanie jabłka (czerwony kwadrat)
+                  draw_rect(&fb, apple.x * BLOCK_SIZE, apple.y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 0, 0, 255);
+
+                  // Rysowanie węża (zielone kwadraty)
+                  for (int i = 0; i < snake_len; i++) {
+                      draw_rect(&fb, snake[i].x * BLOCK_SIZE, snake[i].y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, 0, 255, 0);
+                  }
+
+                  // Synchronizacja klatek
+                  graph_wait_vsync();
               }
               return 0;
           }
           EOF
 
-          # Makefile z dołączonymi bibliotekami graficznymi PS2 (-lgraph -ldraw)
+          # Makefile
           cat << 'EOF' > Makefile
           EE_BIN = SLES_555.55
           EE_OBJS = main.o
-          EE_LIBS = -lgraph -ldraw -lkernel -lc
+          EE_LIBS = -lpad -lgraph -ldraw -lkernel -lc
           
           all: $(EE_BIN)
           	mkdir -p iso_dir
