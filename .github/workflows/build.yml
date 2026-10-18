@@ -8,32 +8,46 @@ on:
 jobs:
   build-ps2-iso:
     runs-on: ubuntu-latest
-    container:
-      image: ps2dev/ps2dev:latest
 
     steps:
       - name: Pobranie kodu źródłowego
         uses: actions/checkout@v4
 
-      - name: Kompilacja kodu i budowa ISO w kontenerze
+      - name: Instalacja zależności systemowych
         run: |
-          echo "Szukam gdzie ukrył się ee-gcc..."
-          find / -name "ee-gcc" 2>/dev/null
+          sudo apt-get update
+          sudo apt-get install -y build-essential wget git make xorriso libarchive-tools curl
+
+      - name: Pobieranie gotowego Toolchaina PS2 (Gotowe binaria)
+        run: |
+          echo "Pobieram oficjalne binaria ps2dev..."
+          sudo mkdir -p /usr/local/ps2dev
           
-          # Ustawiamy ścieżki tam, gdzie faktycznie żyje ten kompilator w tym obrazie
+          # Pobieramy stabilny, gotowy pakiet toolchaina dla Ubuntu z oficjalnych wydań ps2dev
+          wget https://github.com/ps2dev/ps2toolchain/releases/download/v1.0/ps2dev-ubuntu-latest.tar.gz -O /tmp/ps2dev.tar.gz || true
+          
+          if [ -f /tmp/ps2dev.tar.gz ] && [ -s /tmp/ps2dev.tar.gz ]; then
+              sudo tar -xzf /tmp/ps2dev.tar.gz -C /usr/local/ps2dev --strip-components=1
+          else
+              echo "Pobieranie paczki nie powiodło się, pobieram minimalny gotowy pakiet kompilatora..."
+              # Alternatywny, bezpośredni download spakowanego środowiska ee
+              sudo curl -L https://github.com/ps2dev/ps2sdk/releases/download/v1.0/ps2sdk.tar.gz -o /tmp/ps2sdk.tar.gz || true
+          fi
+
+          # Ustawiamy zmienne środowiskowe GitHub Actions dla kolejnych kroków
+          echo "PS2DEV=/usr/local/ps2dev" >> $GITHUB_ENV
+          echo "PS2SDK=/usr/local/ps2dev/ps2sdk" >> $GITHUB_ENV
+          echo "/usr/local/ps2dev/bin" >> $GITHUB_PATH
+          echo "/usr/local/ps2dev/ee/bin" >> $GITHUB_PATH
+
+      - name: Kompilacja kodu i budowa ISO
+        run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
-          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2EE/bin
+          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PATH
 
-          # Próbujemy znaleźć i odpalić kompilator bezpośrednio po pełnej ścieżce jeśli PATH zawiedzie
-          EE_GCC=$(find / -name "ee-gcc" 2>/dev/null | head -n 1)
-          if [ -z "$EE_GCC" ]; then
-            echo "BŁĄD: Nie znaleziono ee-gcc w całym kontenerze!"
-            exit 1
-          fi
-          
-          echo "Znaleziono kompilator w: $EE_GCC"
-          $EE_GCC --version
+          echo "Sprawdzam dostępność kompilatora:"
+          which ee-gcc || find / -name "ee-gcc"
 
           echo "Kompilowanie projektu za pomocą Make..."
           make
@@ -44,8 +58,6 @@ jobs:
           
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
 
-          apt-get update && apt-get install -y xorriso
-          
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_PS2.ISO iso_root/
           ls -lh SNAKE_PS2.ISO
 
