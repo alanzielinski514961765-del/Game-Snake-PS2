@@ -5,47 +5,33 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Konkretna kompilacja pod PS2 i ISO
+      - name: Kompilacja w kontenerze ps2dev
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget make xorriso libarchive-tools build-essential git
-
-          # Pobieramy oficjalne repozytorium toolchaina ps2dev dla Ubuntu, żeby mieć pewny kompilator
-          echo "Pobieranie natywnego środowiska PS2..."
-          wget -q https://github.com/ps2dev/ps2toolchain/releases/download/v1.0/ps2dev-ubuntu-latest.tar.gz -O ps2dev.tar.gz || true
-          
-          if [ -f ps2dev.tar.gz ] && [ -s ps2dev.tar.gz ]; then
-              sudo tar -xzf ps2dev.tar.gz -C /usr/local/
-          fi
-
+          # Jawne ustawienie ścieżek dla tego kroku
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
           export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PATH
 
-          # Kompilacja kodu gry bezpośrednio z main.c
-          if [ -f main.c ]; then
-              echo "Kompilacja pliku main.c..."
-              ee-gcc -O2 main.c -o SLES_555.55 \
-                -I$PS2SDK/ee/include \
-                -I$PS2SDK/common/include \
-                -L$PS2SDK/ee/lib \
-                -lpad -lgraph -ldraw -lkernel -lc || gcc main.c -o SLES_555.55
-          else
-              echo "Brak main.c!"
-              exit 1
-          fi
+          echo "Sprawdzanie dostępności ee-gcc:"
+          which ee-gcc || find / -name "ee-gcc" 2>/dev/null
 
-          # Budowa struktury ISO wymaganej przez konsolę
+          # Kompilacja właściwa
+          ee-gcc -O2 main.c -o SLES_555.55 \
+            -I$PS2SDK/ee/include \
+            -I$PS2SDK/common/include \
+            -L$PS2SDK/ee/lib \
+            -lpad -lgraph -ldraw -lkernel -lc
+
+          # Pakowanie do ISO
+          apt-get update && apt-get install -y xorriso
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
-
-          # Wypalenie obrazu ISO
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
-          ls -la SNAKE_GAME.ISO
 
       - uses: actions/upload-artifact@v4
         with:
