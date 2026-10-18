@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile and Generate ISO natively Dawaj Huju JD
+      - name: Compile and Generate ISO natively
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
@@ -17,7 +17,7 @@ jobs:
           
           apk update && apk add xorriso make
           
-          # Tworzymy plik kodu gry od razu w locie
+          # Tworzymy poprawny plik C z właściwą kolejnością nagłówków
           cat << 'EOF' > main.c
           #include <tamtypes.h>
           #include <kernel.h>
@@ -28,19 +28,25 @@ jobs:
           }
           EOF
 
-          # Kompilacja z pełnymi ścieżkami do nagłówków PS2SDK
-          mips64r5900el-ps2-elf-gcc -O2 main.c -o SLES_555.55 \
-            -I$PS2SDK/common/include \
-            -I$PS2SDK/ee/include \
-            -I$PS2SDK/ee/kernel/include \
-            -L$PS2SDK/ee/lib \
-            -nostdlib -Wl,-Ttext,0x198000
+          # Tworzymy poprawny Makefile z tabulatorami
+          cat << 'EOF' > Makefile
+          EE_BIN = SLES_555.55
+          EE_OBJS = main.o
+          EE_LIBS = -lc
           
-          mkdir -p iso_dir
-          cp SLES_555.55 iso_dir/SLES_555.55
-          printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
-          
-          xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
+          all: $(EE_BIN)
+          	mkdir -p iso_dir
+          	cp $(EE_BIN) iso_dir/SLES_555.55
+          	printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_dir/SYSTEM.CNF
+          	xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_GAME.ISO iso_dir/
+
+          include $(PS2SDK)/samples/Makefile.pref
+          include $(PS2SDK)/samples/Makefile.eeglobal
+          EOF
+
+          # Kompilacja przez oficjalny system reguł PS2SDK
+          make clean || true
+          make
           
           ls -la SNAKE_GAME.ISO
 
