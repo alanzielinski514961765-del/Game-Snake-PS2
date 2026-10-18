@@ -8,53 +8,33 @@ on:
 jobs:
   build-ps2-iso:
     runs-on: ubuntu-latest
+    container:
+      image: ps2dev/ps2dev:latest
+
     steps:
       - name: Pobranie kodu źródłowego
         uses: actions/checkout@v4
 
-      - name: Przygotowanie środowiska i kompilator PS2
+      - name: Kompilacja kodu i budowa ISO w kontenerze
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential wget git make xorriso libarchive-tools
+          # Kontener ps2dev ma już ustawione zmienne PS2DEV, PS2SDK oraz ścieżki w PATH!
+          echo "Sprawdzanie kompilatora w kontenerze:"
+          which ee-gcc
+          ee-gcc --version
 
-          # Pobieramy oficjalne, gotowe binaria toolchaina ps2dev z oficjalnego źródła
-          sudo mkdir -p /usr/local/ps2dev
-          cd /tmp
-          wget https://github.com/ps2dev/ps2toolchain/releases/download/v1.0/ps2dev-ubuntu-latest.tar.gz -O ps2dev.tar.gz || true
-          
-          if [ -f ps2dev.tar.gz ] && [ -s ps2dev.tar.gz ]; then
-              sudo tar -xzf ps2dev.tar.gz -C /usr/local/ps2dev --strip-components=1
-          else
-              echo "Pobieranie alternatywne / budowanie minimalne..."
-              # Jeśli release się zmienił, klonujemy i budujemy w kontrolowany sposób
-              git clone --depth=1 https://github.com/ps2dev/ps2toolchain.git /tmp/ps2toolchain
-              cd /tmp/ps2toolchain
-              ./toolchain.sh
-          fi
-
-      - name: Kompilacja kodu do formatu PS2 i budowa ISO
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PATH
-
-          cd $GITHUB_WORKSPACE
-
-          echo "Kompilowanie main.c..."
-          ee-gcc -O2 main.c -o SLES_555.55 \
-            -I$PS2SDK/ee/include \
-            -I$PS2SDK/common/include \
-            -L$PS2SDK/ee/lib \
-            -lpad -lgraph -ldraw -lkernel -lc
+          echo "Kompilowanie projektu za pomocą Make..."
+          make
 
           echo "Tworzenie struktury ISO dla PS2..."
           mkdir -p iso_root
           cp SLES_555.55 iso_root/SLES_555.55
           
-          # Tworzenie standardowego pliku konfiguracyjnego rozruchu dysku PS2
+          # Plik konfiguracyjny startowy dla PS2 / emulatorów
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
 
-          # Generowanie prawdziwego, bootowalnego obrazu ISO za pomocą xorriso
+          # Instalacja xorriso w kontenerze i generowanie ISO
+          apt-get update && apt-get install -y xorriso
+          
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_PS2.ISO iso_root/
           ls -lh SNAKE_PS2.ISO
 
@@ -63,3 +43,4 @@ jobs:
         with:
           name: SNAKE_PS2.ISO
           path: SNAKE_PS2.ISO
+          
