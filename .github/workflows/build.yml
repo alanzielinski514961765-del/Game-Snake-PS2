@@ -17,9 +17,12 @@ jobs:
 
       - name: Kompilacja kodu i budowa ISO w kontenerze
         run: |
-          # Kontener ps2dev ma już ustawione zmienne PS2DEV, PS2SDK oraz ścieżki w PATH!
-          echo "Sprawdzanie kompilatora w kontenerze:"
-          which ee-gcc
+          # Jawne ustawienie ścieżek dla standardowego sh w kontenerze ps2dev
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PATH
+
+          echo "Sprawdzanie kompilatora:"
           ee-gcc --version
 
           echo "Kompilowanie projektu za pomocą Make..."
@@ -32,7 +35,7 @@ jobs:
           # Plik konfiguracyjny startowy dla PS2 / emulatorów
           printf "BOOT2 = cdrom0:\\\\SLES_555.55;1\nVER = 1.00\nVMODE = NTSC\n" > iso_root/SYSTEM.CNF
 
-          # Instalacja xorriso w kontenerze i generowanie ISO
+          # Instalacja xorriso i generowanie ISO
           apt-get update && apt-get install -y xorriso
           
           xorriso -as mkisofs -iso-level 1 -full-iso9660-filenames -o SNAKE_PS2.ISO iso_root/
