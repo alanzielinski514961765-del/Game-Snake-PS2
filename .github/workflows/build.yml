@@ -30,7 +30,7 @@ jobs:
           }
           EOF
 
-          /usr/local/ps2dev/bin/ee-gcc -O2 main.c -o SLES_555.55 -L/usr/local/ps2dev/ps2sdk/ee/lib -lpad -lgraph -ldraw -lkernel -lc
+          /usr/local/ps2dev/ee/bin/ee-gcc -O2 main.c -o SLES_555.55 -L/usr/local/ps2dev/ps2sdk/ee/lib -lpad -lgraph -ldraw -lkernel -lc
           
           mkdir -p iso_dir
           cp SLES_555.55 iso_dir/SLES_555.55
